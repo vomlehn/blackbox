@@ -1,0 +1,46 @@
+Blackbox - crash logging
+------------------------
+At the top level, a fixed-size concatenation of storage space one or more
+devices of the same device type. Each device is represented by two entries
+in /dev:
+
+blackbox<n>
+	The <n>th blackbox device can be read at any valid offset and for
+	any length. There may be one or more sections of the device that
+	can't be read due to detection of data corruption. It will support
+	detection and skipping of corrupted data through use of a mechanism
+	like ioctl(GET_LBA_STATUS), used for SCSI disks, or the lseek
+	SEEK_DATA/SEEK_HOLE mechanism.
+
+blackboxraw<n>
+	In some cases it is useful to retrieve the raw bits and metadata
+	for the blocks in a blackbox device. For the device, the data
+	in the block box consists of an alternating sequence of data
+	blocks and metadata blocks. The data blocks are the data read from
+	the device without application of error correction metatdata.  The
+	metadata blocks may contain zero or more bytes of data whose format
+	is dependent on the underlying device implementing the blackbox
+	device. It is device dependent whether it contains any error checking
+	and correction (ECC) data.
+
+	This device is record oriented. Thus, if a read is performed on
+	a data or metadata block specifying fewer bytes than are available,
+	Any remaining bytes in that block are discarded and the next read
+	will return data starting at the beginning of the next block. If
+	the underlying device does not supply any metadata, successive
+	reads will return successive data blocks; there are no zero-length
+	metadatablocks.
+
+	The device supports queries for the maximum record sizes of data and
+	metadata blocks. The data returned is struct blackbox_recsize:
+
+		struct blackbox_recsize {
+			off_t	data_size;
+			off_t	metadata_size;
+		};
+	
+	The ioctl number is BBIOC_RECSIZE.
+	
+
+
+
