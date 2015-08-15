@@ -41,6 +41,56 @@ blackboxraw<n>
 	
 	The ioctl number is BBIOC_RECSIZE.
 	
+Each blackbox device is made of write blocks. There may be as few as 1
+or there may be many. Each blackbox write block starts with a metadata section
+describing that block.
 
+Each write block starts with a header that describes the data in the write block.
+If the device requires write blocks be erased prior to writing new data, there
+is only one header. If the device does not require erasing before writing, there
+are two headers, both of which have the same structure. Only one of the two
+headers is modified at a time. If the system fails during a header write, that
+header will be invalid, which is detected with a checksum, but the other header
+will still be valid, allowing the data to be retrieved.
 
+All fields in the header are printable so that, if the data stored is printable,
+it is easy to review the data in the device. This includes checksums. Algorithms
+for validating checksums frequently involve computations on the entire block,
+including the checksum. Since the checksum value has been converted to a printable
+value, the usual approach doesn't apply. Instead, all fields except for the checksum
+are included in the checksum as printable characters. The checksum itself is
+the converted to binary and processed with the checksum algorithm.
 
+The following table describes the header fields. The data is stored in the order
+in which it appears in the table.
+
+Field			Size	Description
+			(bytes)
+-----------------------	-------	-------------------------------------------------------
+
+sequence_number		64	A monotonically increasing value, starting at one,
+				encoded as a lower case hexadecimal value with leading
+				zero padding
+version			1	Version of this data, a value from "00" to "99"
+offset			32	Logical offset within the blackbox device of this block,
+				encoded as a leading zero-padded, lower case hexadecimal
+				value
+size			8	Number of bytes of data written to this block, encoded
+				as a lower case hexadecimal value with zero padding
+checksum		8	Checksum for this write block, encoded as a lower case
+				hexadecimal number with leading zeros
+eoh			1	End of header value, which must be the newline (line
+				feed) character.
+
+Blackbox blocks are organized into erase blocks. All erase blocks hold the
+same number number of blackbox write blocks and are aligned on a boundary that
+is a mutiple of the erase block size. A device will have one or more erase blocks.
+
+Values that can be read with ioctl()
+------------------------------------
+o	The byte value this device uses when erasing write blocks
+o	Size of write blocks
+o	Number of bytes of metadata per write block
+o	Number of write blocks per erase block
+o	Boolean indicating whether this device requires write blocks must be erased
+	(along with the other write blocks in its containing erase block)
