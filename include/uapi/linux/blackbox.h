@@ -6,22 +6,24 @@
 #define _LINUX_BLACKBOX_H_
 
 #include <linux/kernel.h>
+#include <linux/list.h>
+#include <linux/string.h>
 
 /*
- * struct blackbox_header - header for write blocks. There may be more than one of these
- *	in a write block.
+ * Macro that zeros out the memory between the end of an embedded structure
+ * (the child structure) and the end of tjhe structure in which it is embedded
+ * (the parent structure). The child structure must be the first element in
+ * the parent structure.
+ *
+ * @parentp:	Pointer to the parent structure
+ * @child:	Name of the chaild structure
  */
-struct blackbox_header {
-};
+#define CLEAR_CHILD_SPECIFIC(parent_p, child) \
+	memset((void *)&(parent_p)->child + sizeof((parent_p)->child), 0, \
+		sizeof(*(parent_p)) - sizeof((parent_p)->child))
 
-/*
- * struct blackbox_buf - common data for a black box buffer
- * @bbdev:	Pointer to the &struct blackbox_device for the device that owns this
- *		buffer.
- */
-struct blackbox_buf {
-	struct blackbox_device	*bb_dev;
-};
+/* Forward declaration */
+struct blackbox_device;
 
 /*
  * struct blackbox_devops - black box device operations
@@ -56,31 +58,63 @@ struct blackbox_devops {
 };
 
 /*
- * struct blackbox_device - information about a black box device
+ * Information about a class of blackbox devices
  */
-struct blackbox_device {
+struct blackbox {
+	struct list_head		registered;
+	const char			*name;
 	const struct blackbox_devops	*ops;
 };
 
-extern void blackbox_device_init(struct blackbox_device *blackbox_device,
+/*
+ * struct blackbox_header - header for write blocks. There may be more than one of these
+ *	in a write block.
+ */
+struct blackbox_header {
+};
+
+/*
+ * struct blackbox_buf - common data for a black box buffer
+ * @bbdev:	Pointer to the &struct blackbox_device for the device that owns this
+ *		buffer.
+ */
+struct blackbox_buf {
+	struct blackbox_device	*bb_dev;
+};
+
+/*
+ * struct blackbox_device - information about a black box device
+ */
+struct blackbox_device {
+	struct blackbox	*blackbox;
+};
+
+/* Functions for the parent class of all blackbox device class classes */
+extern int blackbox_init(struct blackbox *blackbox, const char *name,
 	const struct blackbox_devops *devops);
+extern void blackbox_fini(struct blackbox *blackbox);
+
+/* Functions for individual blackbox devices */
+extern void blackbox_device_init(struct blackbox_device *blackbox_device);
 extern void blackbox_device_fini(struct blackbox_device *blackbox_device);
+extern void blackbox_device_register(struct blackbox_device *blackbox_device);
+extern void blackbox_device_unregister(struct blackbox_device *blackbox_device);
 
 static inline struct blackbox_buf *
 blockbox_buf_alloc(struct blackbox_device *blackbox_device, off_t off)
 {
-	return blackbox_device->ops->bbdev_buf_alloc(blackbox_device, off);
+	return blackbox_device->blackbox->ops->bbdev_buf_alloc(blackbox_device, off);
 }
 
 static inline ssize_t blackbox_buf_write(struct blackbox_buf *blackbox_buf,
 	off_t off, void *data, size_t size)
 {
-	return blackbox_buf->bb_dev->ops->bbdev_buf_write(blackbox_buf, off, data,
-		size);
+	return blackbox_buf->bb_dev->blackbox->ops->bbdev_buf_write(blackbox_buf, off,
+		data, size);
 }
 
 static inline int blackbox_buf_commit(struct blackbox_buf *blackbox_buf)
 {
-	return blackbox_buf->bb_dev->ops->bbdev_buf_commit(blackbox_buf);
+	return blackbox_buf->bb_dev->blackbox->ops->bbdev_buf_commit(blackbox_buf);
 }
 #endif /* _LINUX_BLACKBOX_H_ */
