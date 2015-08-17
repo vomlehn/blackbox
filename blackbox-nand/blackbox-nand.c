@@ -4,6 +4,7 @@
 
 #include <linux/err.h>
 #include <linux/errno.h>
+#include <linux/fs.h>
 #include <linux/module.h>
 
 #include <uapi/linux/blackbox-nand.h>
@@ -14,13 +15,14 @@ struct blackbox_nand {
 
 static struct blackbox_nand blackbox_nand;
 
-static struct blackbox_buf *bbnand_buf_alloc(struct blackbox_device *bb_dev, off_t off)
+static struct blackbox_buf *bbnand_buf_alloc(struct blackbox_dev *bb_dev,
+	off_t off)
 {
 	return ERR_PTR(-ENOSYS);
 }
 
-static ssize_t bbnand_buf_write(struct blackbox_buf *bb_buf, off_t off, void *data,
-	size_t size)
+static ssize_t bbnand_buf_write(struct blackbox_buf *bb_buf, void *data,
+	size_t size, off_t off)
 {
 	return -ENOSYS;
 }
@@ -39,10 +41,10 @@ static const struct blackbox_devops bbnand_devops = {
 /*
  * Initialize a NAND-based blackbox device
  */
-void blackbox_nanddev_init(struct blackbox_nand_device *bbnand_dev)
+void blackbox_nanddev_init(struct blackbox_dev_nand *bbnand_dev)
 {
-	blackbox_device_init(&bbnand_dev->blackbox_device);
-	CLEAR_CHILD_SPECIFIC(bbnand_dev, blackbox_device);
+	blackbox_dev_init(&bbnand_dev->blackbox_dev);
+	CLEAR_CHILD_SPECIFIC(bbnand_dev, blackbox_dev);
 }
 
 /*
