@@ -1,5 +1,61 @@
 Blackbox - crash logging
 ------------------------
+Embedded systems typically have limited storage and little to no network
+connectivity with which to store and report on software failures. This has
+led to approaches that log critical crash information, such as stack
+backtraces for retrieval after a system restart. Such facilities have
+generally been done on an ad hoc basis, with each vendor developimg its
+own code. Blackbox is intended to provide a common approach to this
+problem. It is based on a set of experienced-based principals:
+
+o	Systems experiencing failures must not use any more subsystems to
+	store and report failure information than necessary since those
+	subsystems may themselves be failing. For example, storing reports
+	in a filesystem requires functioning filesystem, memory management,
+	interrupt handling, and scheduler code.
+
+	The approach is to store failure information with as few resources
+	as possible, then restart the failing system. Once the system is
+	again in a good state, the stored report may be retrieved, stored
+	in a filesystem, and transmitted over a network. Devices used for
+	log storage should be used in a polled, rather than interrupt-
+	driven, mode.
+
+o	Failing systems may fail completely during failure logging.
+ 
+	This has two consequences:
+
+	-	Data should not be buffered but should be stored in the
+		failure log as soon as it is available, even at the cost
+		of inefficiently using the log storage medium.
+
+	-	Data that is more likely to be helpful in debugging
+		failures should be logged first. This is a requirement on
+		code using the failure logging system, but the that
+		requirment means that the data logged must not not cause the
+		loss of data logged later.
+		
+
+o	Software failures tend to cascade, with a primary failure leading to
+	one or more secondary failures that won't occur without the state
+	corruption caused by the primary failure.
+
+	Information about the primary failure is absolutely more valuable
+	than information about secondary failures; secondary failure
+	information should be discarded if recording it would result in
+	loss of primary failure information. An immediate consequence is
+	that failure logs should not be circular logs, though they may
+	contain information from circular logs.
+
+o	A failure may cause partial corruption of information stored about
+	that failure while leaving enough failure information intact that
+	a human can decypher it.
+
+	As a result, metadata such as length and checksum information should
+	provide guidance to the retrieval of failure information but invalid
+	metadata information values should not prevent reading possibly
+	corrupted data.
+
 At the top level, a fixed-size concatenation of storage space one or more
 devices of the same device type. Each device is represented by two entries
 in /dev:
