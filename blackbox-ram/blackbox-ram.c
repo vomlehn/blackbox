@@ -147,10 +147,8 @@ static const struct file_operations fops = {
 void blackbox_ramdev_init(struct blackbox_dev_ram *bbram_dev, void *ram,
 	size_t size)
 {
-#if 0
-	blackbox_dev_init(&bbram_dev->blackbox_device);
+	blackbox_device_init(&bbram_dev->blackbox_device);
 	CLEAR_CHILD_SPECIFIC(bbram_dev, blackbox_device);
-#endif
 }
 
 #ifndef MODULE
@@ -188,6 +186,7 @@ static int blackbox_ram_module_init(void)
 {
 	int rc;
 	pr_info("Wave hello to %s\n", __func__);
+	pr_info("params = %s\n", params);
 
 	/*
 	 * This may be called explicitly if early use of the RAM-based Blackblox
@@ -221,7 +220,7 @@ static void blackbox_ram_module_exit(void)
 }
 
 module_param(params, charp, 0644);
-MODULE_PARM_DESC(param, "parameters: size@physical_address");
+MODULE_PARM_DESC(params, "parameters: size@physical_address");
 
 module_init(blackbox_ram_module_init);
 module_exit(blackbox_ram_module_exit);

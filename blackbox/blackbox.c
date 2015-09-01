@@ -73,30 +73,16 @@ void blackbox_add_device(char *name, unsigned long long size,
 	pr_err("Too many blackbox devices defined\n");
 }
 
-#if 0
-/*
- * For debugging only
- * Create a command line
- */
-static void create_cmdline(void)
+void blackbox_device_init(struct blackbox_device *dev)
 {
-	extern unsigned char dummy_ram[1024*1024];
-	extern size_t dummy_ram_size;
-	char cmdline[256];
-	int rc;
-	unsigned long long size;
-	unsigned long long offset;
-
-	offset = (u64)dummy_ram;
-	size = dummy_ram_size;
-
-	rc = snprintf(cmdline, sizeof(cmdline),
-		"blackbox=%s:%lld@%lldG", "ram", size, offset);
-	if (rc == -1 || rc >= sizeof(cmdline))
-		panic("%s: cmdline too small\n", __func__);
-	parse_blackbox_params(cmdline);
+	memset(dev, 0, sizeof(*dev));
 }
-#endif
+EXPORT_SYMBOL(blackbox_device_init);
+
+void blackbox_device_fini(struct blackbox_device *dev)
+{
+}
+EXPORT_SYMBOL(blackbox_device_fini);
 
 /*
  * blackbox_module_init- top-level initialization for the Blackbox driver
