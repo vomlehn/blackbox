@@ -72,6 +72,7 @@ void blackbox_add_device(char *name, unsigned long long size,
 
 	pr_err("Too many blackbox devices defined\n");
 }
+EXPORT_SYMBOL(blackbox_add_device);
 
 void blackbox_device_init(struct blackbox_device *dev)
 {

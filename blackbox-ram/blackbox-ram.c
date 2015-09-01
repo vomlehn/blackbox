@@ -151,14 +151,12 @@ void blackbox_ramdev_init(struct blackbox_dev_ram *bbram_dev, void *ram,
 	CLEAR_CHILD_SPECIFIC(bbram_dev, blackbox_device);
 }
 
-#ifndef MODULE
-static int __init setup_early_blackbox(char *p)
+static int __init parse_params(char *p)
 {
 	char *retptr;
 	unsigned long long size, start;
 
 printk("%s: given %s\n", __func__, p);
-return 0;
 	size = memparse(p, &retptr);
 	if (*retptr != '@')
 		return -EINVAL;
@@ -173,10 +171,9 @@ return 0;
 
 	return 0;
 }
-#endif
 
 #ifndef MODULE
-early_param(blackbox_ram, setup_early_blackbox);
+early_param("params", parse_params);
 #endif
 
 /*
@@ -187,6 +184,7 @@ static int blackbox_ram_module_init(void)
 	int rc;
 	pr_info("Wave hello to %s\n", __func__);
 	pr_info("params = %s\n", params);
+	parse_params(params);
 
 	/*
 	 * This may be called explicitly if early use of the RAM-based Blackblox
