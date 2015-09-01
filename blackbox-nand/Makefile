@@ -1,1 +1,1 @@
-obj-m		:= blackbox-nand.o
+#obj-m		:= blackbox-nand.o

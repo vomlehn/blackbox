@@ -1,6 +1,11 @@
 /*
  * Functions and data for the NAND flash-based black box device
  */
+/*********************************************************************
+*
+* Work on the RAM stuff for now, come back when it's working
+*
+*********************************************************************/
 
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -52,7 +57,16 @@ void blackbox_nanddev_init(struct blackbox_dev_nand *bbnand_dev)
  */
 static int blackbox_nand_module_init(void)
 {
-	return blackbox_init(&blackbox_nand.blackbox, "blackbox-nand", &bbnand_devops);
+	/*
+	 * Ensure the underlying common Blackbox code is initialized so that
+	 * we work even in the case of early initialization
+	 */
+	rc = blackbox_module_init();
+	if (rc != 0)
+		return 0l
+
+	return blackbox_init(&blackbox_nand.blackbox, "blackbox-nand",
+		&bbnand_devops);
 }
 
 static void blackbox_nand_module_exit(void)

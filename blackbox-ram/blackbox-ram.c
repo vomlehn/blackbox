@@ -6,8 +6,18 @@
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/module.h>
+#include <linux/init.h>
 
-#include <uapi/linux/blackbox-ram.h>
+#include <linux/blackbox-ram.h>
+
+static char *params;
+
+/*
+ * This is the dummy RAM area for development it needs to be replaced by
+ * passed-in parameters.
+ */
+unsigned char dummy_ram[1024*1024];
+size_t dummy_ram_sixe = sizeof(dummy_ram);
 
 /*
  * struct blackbox_ram_desc - descriptor for one piece of a RAM-based black box
@@ -38,20 +48,21 @@ struct blackbox_ram_buf {
  *			device
  */
 struct blackbox_dev_ram {
-	struct blackbox_dev		blackbox_dev;
+	struct blackbox_device		blackbox_device;
 	size_t				n_desc;
 	struct blackbox_ram_desc	desc[];
 };
 
 struct blackbox_ramdev {
-	struct blackbox_dev	blackbox_dev;
+	struct blackbox_device	blackbox_device;
 };
 
 struct blackbox_ram {
-	struct blackbox	blackbox;
+	struct blackbox_class	blackbox_class;
 };
 
 static struct blackbox_ram blackbox_ram;
+static bool blackbox_ram_initialized;
 static bool initialized;
 
 /*
@@ -63,12 +74,12 @@ static bool initialized;
  * On success, returns a pointer to a &struct blackbox_buf, otherwise an
  * ERR_PTR.
  */
-static struct blackbox_buf *bbram_buf_alloc(struct blackbox_dev *bb_dev,
+static struct blackbox_buf *bbram_buf_alloc(struct blackbox_device *bb_dev,
 	off_t off)
 {
 	struct blackbox_ramdev *ramdev;
 
-	ramdev = container_of(bb_dev, struct blackbox_ramdev, blackbox_dev);
+	ramdev = container_of(bb_dev, struct blackbox_ramdev, blackbox_device);
 
 	return ERR_PTR(-ENOSYS);
 }
@@ -136,37 +147,81 @@ static const struct file_operations fops = {
 void blackbox_ramdev_init(struct blackbox_dev_ram *bbram_dev, void *ram,
 	size_t size)
 {
-	blackbox_dev_init(&bbram_dev->blackbox_dev);
-	CLEAR_CHILD_SPECIFIC(bbram_dev, blackbox_dev);
+#if 0
+	blackbox_dev_init(&bbram_dev->blackbox_device);
+	CLEAR_CHILD_SPECIFIC(bbram_dev, blackbox_device);
+#endif
 }
 
+#ifndef MODULE
+static int __init setup_early_blackbox(char *p)
+{
+	char *retptr;
+	unsigned long long size, start;
+
+printk("%s: given %s\n", __func__, p);
+return 0;
+	size = memparse(p, &retptr);
+	if (*retptr != '@')
+		return -EINVAL;
+
+	start = memparse(retptr + 1, &retptr);
+
+	if (*retptr != ' ' && *retptr != '\0')
+		return -EINVAL;
+
+	// FIXME: needs work, may be in the wrong place.
+	blackbox_add_device("ram", size, start);
+
+	return 0;
+}
+#endif
+
+#ifndef MODULE
+early_param(blackbox_ram, setup_early_blackbox);
+#endif
+
 /*
- * Register the class of RAM-based blackbox devices
+ * Register the class of RAM-based blackbox devices.
  */
 static int blackbox_ram_module_init(void)
 {
-	if (initialized)
+	int rc;
+	pr_info("Wave hello to %s\n", __func__);
+
+	/*
+	 * This may be called explicitly if early use of the RAM-based Blackblox
+	 * driver is configured but is always called during normal driver
+	 * initialization. Make sure we do the initialization work once.
+	 */
+	if (blackbox_ram_initialized)
 		return 0;
 
-	initialized = true;
-	blackbox_init(&blackbox_ram.blackbox, "blackbox-ram",
+	blackbox_ram_initialized = true;
+
+	/*
+	 * Ensure the underlying common Blackbox code is initialized so that
+	 * we work even in the case of early initialization
+	 */
+	rc = blackbox_module_init();
+	if (rc != 0)
+		return 0;
+
+	blackbox_class_register(&blackbox_ram.blackbox_class, "blackbox-ram",
 		&bbram_devops);
 
 	return 0;
 }
 
-#ifdef CONFIG_BLACKBOX_EARLY_INIT_NAND
-void blackbox_early_init_nand(void)
-{
-	return blackbox_ram_module_init();
-}
-#endif
-
 static void blackbox_ram_module_exit(void)
 {
+	pr_info("Wave goodbye to %s\n", __func__);
+	blackbox_class_unregister(&blackbox_ram.blackbox_class);
 	initialized = false;
-	blackbox_fini(&blackbox_ram.blackbox);
 }
+
+module_param(params, charp, 0644);
+MODULE_PARM_DESC(param, "parameters: size@physical_address");
 
 module_init(blackbox_ram_module_init);
 module_exit(blackbox_ram_module_exit);

@@ -1,51 +1,137 @@
 /*
  * Functions common to all blackbox devices.
+ *
+ * Because we want Blackbox device to work very early in start up, we defer
+ * memory allocation, even if this might mean some features aren't available
+ * until the whole system is up.
  */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/init.h>
 
-#include <uapi/linux/blackbox.h>
+#include <linux/blackbox.h>
 
 static LIST_HEAD(registered);
 static bool initialized;
 
+static struct blackbox_device blackbox_devices[BLACKBOX_MAX_COUNT];
+
 /*
- * blackbox_init - initialize a &struct blackbox
+ * blackbox_class_register - register a new Blackbox class
  */
-int blackbox_init(struct blackbox *blackbox, const char *name,
-	const struct blackbox_devops *devops)
+int blackbox_class_register(struct blackbox_class *bb_class,
+	const char *name, const struct blackbox_devops *devops)
 {
-	blackbox->ops = devops;
-	blackbox->name = name;
-	list_add(&blackbox->registered, &registered);
+	bb_class->devops = devops;
+	bb_class->name = name;
+	list_add(&bb_class->registered, &registered);
 
 	return 0;
 }
+EXPORT_SYMBOL(blackbox_class_register);
 
-/*
- * blackbox_fini - clean up a &struct blackbox
- */
-void blackbox_fini(struct blackbox *blackbox)
+void blackbox_class_unregister(struct blackbox_class *bb_class)
 {
-	list_del(&blackbox->registered);
+	list_del(&bb_class->registered);
 }
 
-static int blackbox_module_init(void)
+static struct blackbox_class *find_bb_class(const char *name)
 {
+	struct blackbox_class *bb_class;
+
+	list_for_each_entry(bb_class, &registered, registered) {
+		if (strcmp(name, bb_class->name) == 0)
+			return bb_class;
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL(blackbox_class_unregister);
+
+void blackbox_add_device(char *name, unsigned long long size,
+	unsigned long long offset)
+{
+	struct blackbox_class *bb_class;
+	int i;
+
+	bb_class = find_bb_class(name);
+	if (bb_class == NULL) {
+		pr_err("No blackbox class found with name %s\n", name);
+		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(blackbox_devices); i++) {
+		if (blackbox_devices[i].class == NULL) {
+			blackbox_devices[i].class = bb_class;
+			blackbox_devices[i].size = size;
+			blackbox_devices[i].offset = offset;
+			return;
+		}
+	}
+
+	pr_err("Too many blackbox devices defined\n");
+}
+
+#if 0
+/*
+ * For debugging only
+ * Create a command line
+ */
+static void create_cmdline(void)
+{
+	extern unsigned char dummy_ram[1024*1024];
+	extern size_t dummy_ram_size;
+	char cmdline[256];
+	int rc;
+	unsigned long long size;
+	unsigned long long offset;
+
+	offset = (u64)dummy_ram;
+	size = dummy_ram_size;
+
+	rc = snprintf(cmdline, sizeof(cmdline),
+		"blackbox=%s:%lld@%lldG", "ram", size, offset);
+	if (rc == -1 || rc >= sizeof(cmdline))
+		panic("%s: cmdline too small\n", __func__);
+	parse_blackbox_params(cmdline);
+}
+#endif
+
+/*
+ * blackbox_module_init- top-level initialization for the Blackbox driver
+ *
+ * This is normally invoked when other drivers are being initialized, but
+ * it can be manually invoked in cases where very early crashes are to be
+ * logged, i.e. when CONFIG_BLACKBOX_EARLY_INIT is enabled.
+ */
+int blackbox_module_init(void)
+{
+	pr_info("Say hi to Blackbox\n");
+	/*
+	 * If CONFIG_BLACKBOX_EARLY_INIT is set, we could be invoked from
+	 * each class of Blackbox device, as well as during normal driver
+	 * initialization. This is unavoidable, so make sure we only do the
+	 * work of initialization once.
+	 */
 	if (initialized)
 		return 0;
 
 	initialized = true;
 
+#if 0
+	create_cmdline();
+#endif
 	return 0;
 }
+EXPORT_SYMBOL(blackbox_module_init);
 
-static void blackbox_module_exit(void)
+void blackbox_module_exit(void)
 {
 	pr_info("So long to blackbox\n");
 	initialized = false;
 }
+EXPORT_SYMBOL(blackbox_module_exit);
 
 module_init(blackbox_module_init);
 module_exit(blackbox_module_exit);
